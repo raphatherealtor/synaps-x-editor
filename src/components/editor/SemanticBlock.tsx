@@ -19,7 +19,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderInline } from "@/lib/editor/markdown";
-import { compressDataUrl } from "@/lib/editor/images";
+import { ingestAndInsert } from "@/lib/editor/ingest-ui";
+import {
+  CARET_NEXT_LINE,
+  CARET_PREV_LINE,
+  caretOnFirstLine,
+  caretOnLastLine,
+  columnOf,
+  isComposingKey,
+} from "@/lib/editor/caret";
 import { SLASH_LOOKUP, TYPE_META, type SemanticType } from "@/lib/editor/types";
 import { TYPE_TONE } from "@/lib/editor/theme";
 import { useEditorStore } from "@/lib/editor/store";
@@ -40,22 +48,6 @@ const TEXT_TYPES: SemanticType[] = [
 
 function pad(n: number) {
   return String(n + 1).padStart(2, "0");
-}
-
-function caretOnFirstLine(el: HTMLTextAreaElement) {
-  if (el.selectionStart !== el.selectionEnd) return false;
-  return !el.value.slice(0, el.selectionStart).includes("\n");
-}
-
-function caretOnLastLine(el: HTMLTextAreaElement) {
-  if (el.selectionStart !== el.selectionEnd) return false;
-  return !el.value.slice(el.selectionStart).includes("\n");
-}
-
-function columnOf(el: HTMLTextAreaElement) {
-  const start = el.selectionStart;
-  const lineStart = el.value.lastIndexOf("\n", start - 1) + 1;
-  return start - lineStart;
 }
 
 export const SemanticBlock = memo(function SemanticBlock({
@@ -83,7 +75,6 @@ export const SemanticBlock = memo(function SemanticBlock({
   const toggleChecked = useEditorStore((s) => s.toggleChecked);
   const setActiveBlock = useEditorStore((s) => s.setActiveBlock);
   const applyPaste = useEditorStore((s) => s.applyPaste);
-  const insertImage = useEditorStore((s) => s.insertImage);
 
   const api = useEditorApi();
   const taRef = useRef<HTMLTextAreaElement | null>(null);
@@ -91,18 +82,21 @@ export const SemanticBlock = memo(function SemanticBlock({
   const [menu, setMenu] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const flushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const composingRef = useRef(false);
+  const lastCommitted = useRef(block?.content ?? "");
 
   useEffect(() => {
     if (!block) return;
     if (document.activeElement !== taRef.current) {
       setLocal(block.content);
+      lastCommitted.current = block.content;
     }
   }, [block]);
 
   useLayoutEffect(() => {
     const el = taRef.current;
     if (!el) return;
-    el.style.height = "0px";
+    el.style.height = "auto";
     el.style.height = `${Math.max(el.scrollHeight, 24)}px`;
   }, [local, block?.semanticType, compact, active]);
 
@@ -120,15 +114,17 @@ export const SemanticBlock = memo(function SemanticBlock({
       if (!ce.detail) return;
       setLocal(ce.detail.value);
       if (flushRef.current) clearTimeout(flushRef.current);
+      lastCommitted.current = ce.detail.value;
       updateBlock(id, { content: ce.detail.value });
-      requestAnimationFrame(() => {
-        el.focus();
+      try {
         el.setSelectionRange(ce.detail.start, ce.detail.end);
-      });
+      } catch {
+        /* ignore */
+      }
     };
     el.addEventListener("sx-wrap", onWrap);
     return () => el.removeEventListener("sx-wrap", onWrap);
-  }, [id, updateBlock, active]);
+  }, [id, updateBlock]);
 
   if (!block) return null;
 
@@ -138,19 +134,25 @@ export const SemanticBlock = memo(function SemanticBlock({
   const showPreview = !active;
 
   const flush = (value: string) => {
+    if (composingRef.current) return;
     if (flushRef.current) clearTimeout(flushRef.current);
     flushRef.current = setTimeout(() => {
+      if (value === lastCommitted.current) return;
+      lastCommitted.current = value;
       updateBlock(id, { content: value });
-    }, 120);
+    }, 160);
   };
 
   const commitNow = (value: string) => {
     if (flushRef.current) clearTimeout(flushRef.current);
+    if (value === lastCommitted.current) return;
+    lastCommitted.current = value;
     updateBlock(id, { content: value });
   };
 
   const onChange = (value: string) => {
     setLocal(value);
+    if (composingRef.current) return;
     flush(value);
     const slash = value.trim();
     setSlashOpen(/^\/[a-z]*$/.test(slash));
@@ -165,6 +167,8 @@ export const SemanticBlock = memo(function SemanticBlock({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isComposingKey(e) || composingRef.current) return;
+
     const el = e.currentTarget;
     const start = el.selectionStart;
     const end = el.selectionEnd;
@@ -221,19 +225,20 @@ export const SemanticBlock = memo(function SemanticBlock({
       return;
     }
 
-    if (e.key === "ArrowUp" && caretOnFirstLine(el)) {
+    if (e.key === "ArrowUp" && caretOnFirstLine(value, start, end)) {
       e.preventDefault();
       commitNow(value);
       const prevId = api.blockIds[index - 1];
-      if (prevId) api.focusBlock(prevId, 1_000_000 + columnOf(el));
+      if (prevId) api.focusBlock(prevId, CARET_PREV_LINE + columnOf(value, start));
       return;
     }
 
-    if (e.key === "ArrowDown" && caretOnLastLine(el)) {
+    if (e.key === "ArrowDown" && caretOnLastLine(value, start, end)) {
       e.preventDefault();
       commitNow(value);
       const nextId = api.blockIds[index + 1];
-      if (nextId) api.focusBlock(nextId, 2_000_000 + columnOf(el));
+      if (nextId) api.focusBlock(nextId, CARET_NEXT_LINE + columnOf(value, start));
+      return;
     }
 
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "ArrowUp") {
@@ -253,12 +258,7 @@ export const SemanticBlock = memo(function SemanticBlock({
     );
     if (image) {
       e.preventDefault();
-      const reader = new FileReader();
-      reader.onload = () => {
-        const src = String(reader.result);
-        void compressDataUrl(src).then((out) => insertImage(id, out, image.name));
-      };
-      reader.readAsDataURL(image);
+      void ingestAndInsert(id, image);
       return;
     }
     const text = e.clipboardData.getData("text/plain");
@@ -362,10 +362,22 @@ export const SemanticBlock = memo(function SemanticBlock({
               value={local}
               rows={1}
               spellCheck={type !== "code"}
+              autoCorrect={type === "code" ? "off" : "on"}
+              autoCapitalize={type === "code" ? "none" : "sentences"}
+              autoComplete="off"
+              enterKeyHint="enter"
               aria-label={`${meta.label} block`}
               placeholder={showPreview ? undefined : meta.placeholder}
               onFocus={() => setActiveBlock(id)}
+              onCompositionStart={() => {
+                composingRef.current = true;
+              }}
+              onCompositionEnd={(e) => {
+                composingRef.current = false;
+                onChange(e.currentTarget.value);
+              }}
               onBlur={() => {
+                composingRef.current = false;
                 commitNow(local);
                 setSlashOpen(false);
               }}

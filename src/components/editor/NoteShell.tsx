@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/lib/editor/store";
+import { migrateLegacyNotes } from "@/lib/editor/migrate-images";
+import { isElementInView } from "@/lib/editor/caret";
+import { buildStressNote } from "@/lib/editor/stress";
 import {
   BottomNav,
   BottomUtilityBar,
   ContextBar,
   FocusChip,
   HeaderBar,
+  StorageBanner,
 } from "./chrome";
 import { EditorBody, EditorSession } from "./EditorBody";
 import { NeuralIndex } from "./NeuralIndex";
@@ -40,12 +44,51 @@ export function NoteShell() {
   const fontScale = useEditorStore((s) => s.settings.fontScale);
   const keyboard = useKeyboardInset();
   const keyboardOpen = keyboard > 60;
+  const mainRef = useRef<HTMLElement>(null);
+  const prevKb = useRef(0);
 
   useEffect(() => {
-    void Promise.resolve(useEditorStore.persist.rehydrate()).finally(() => {
-      useEditorStore.getState().hydrateFlag();
-    });
+    let cancelled = false;
+    void (async () => {
+      await useEditorStore.persist.rehydrate();
+      try {
+        const { notes } = useEditorStore.getState();
+        const result = await migrateLegacyNotes(notes);
+        if (cancelled) return;
+        if (result.migrated > 0) {
+          useEditorStore.getState().replaceNotes(result.notes);
+        }
+      } catch {
+        /* keep legacy data URLs until a later load */
+      } finally {
+        if (!cancelled) useEditorStore.getState().hydrateFlag();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    const w = window as Window & {
+      __SX?: { store: typeof useEditorStore; buildStressNote: typeof buildStressNote };
+    };
+    w.__SX = { store: useEditorStore, buildStressNote };
+    return () => {
+      delete w.__SX;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (keyboardOpen && keyboard > prevKb.current) {
+      const el = document.activeElement;
+      const scroller = mainRef.current;
+      if (el instanceof HTMLElement && scroller && !isElementInView(el, scroller)) {
+        el.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    }
+    prevKb.current = keyboard;
+  }, [keyboard, keyboardOpen]);
 
   const hideChrome = focusMode || keyboardOpen;
   const showToolbar = tab === "editor";
@@ -66,9 +109,11 @@ export function NoteShell() {
             <ContextBar />
           </>
         ) : null}
+        <StorageBanner />
 
         <EditorSession>
           <main
+            ref={mainRef}
             className="relative min-h-0 flex-1 overflow-y-auto"
             style={{
               paddingBottom: showToolbar && keyboardOpen ? 96 : 8,

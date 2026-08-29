@@ -70,13 +70,13 @@ Do not create a `.env` with secrets. There are no API keys in this project.
 
 ## Data storage
 
-Key: `localStorage["synaps-x-journal"]` (Zustand persist, JSON, version `1`).
+Key: `localStorage["synaps-x-journal"]` (Zustand persist, JSON, version `2`).
 
 | Data | Storage | Survives refresh | Survives close/reopen | Notes |
 |---|---|---|---|---|
 | Notes + project list | localStorage | yes | yes | Full `Note[]` |
 | Blocks, order, types | localStorage | yes | yes | Nested on each note |
-| Uploaded images | localStorage (base64 JPEG data URLs) | yes | yes | Compressed first |
+| Uploaded images | IndexedDB blobs via `imageAssetId` | yes | yes | JPEG, not base64 in notes |
 | Seed demo images | static files under `public/demo/` | yes | yes | Stored as paths (`/demo/bridge.jpg`) |
 | Captions | localStorage | yes | yes | Caption blocks |
 | Image display size | localStorage | yes | yes | `imageWidth` 40–100, CSS only |
@@ -87,7 +87,7 @@ Key: `localStorage["synaps-x-journal"]` (Zustand persist, JSON, version `1`).
 | MCP chip | in-memory constant `true` | n/a | n/a | Visual only |
 | Sync/Online chip | in-memory (`saved`/`saving`) | n/a | n/a | Local debounce, not a network |
 
-**Not used:** IndexedDB, a server database, the filesystem, cookies.
+**Also used:** IndexedDB `synaps-x-images` for uploaded binaries. No server database. Legacy `data:` URLs migrate into IndexedDB once; originals are kept until copy succeeds.
 
 Hydration: `skipHydration: true`, then `NoteShell` calls `persist.rehydrate()` on mount. Until that finishes, seed data is shown, then replaced.
 
@@ -112,10 +112,10 @@ Hydration: `skipHydration: true`, then `NoteShell` calls `persist.rehydrate()` o
 
 ## Known limitations
 
-- **Images in localStorage.** Uploads are JPEG data URLs, max edge 1400px, quality 0.78. Typical 100–300 KB each after base64. Browser quota is often ~5 MB. Dozens of images will fail persist (`QuotaExceededError`) with no recovery UI.
+- **Images.** Uploads are JPEG blobs in IndexedDB (max edge 1400px, quality 0.78). Notes store `imageAssetId` only. Quota errors surface as an in-app warning. IndexedDB quota is typically hundreds of MB to a few GB per origin.
 - Resize slider changes **display width only**. The JPEG source is not re-encoded. Images are shown `aspect-square object-cover` (visual crop).
 - PNG transparency and GIF/WebP animation are flattened to JPEG on upload.
-- Markdown export inlines `![alt](data:image/jpeg;base64,...)` for uploads. It does not write a folder of image files. Reconstructing a note from `.md` is possible for text; images are referenced, not bundled as files.
+- Markdown export writes `![alt](synaps-asset:<id>)` for uploads (or `/demo/...` for seed images). It does not bundle image files. Text reconstructs from `.md`; binaries stay on-device.
 - No cloud sync, no accounts, no multi-device.
 - "MCP Active" and "Online / Sync" are UI chrome, not network status.
 - Code blocks have no language picker or highlighting.

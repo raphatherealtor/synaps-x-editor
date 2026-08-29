@@ -19,6 +19,24 @@ import {
 } from "@/lib/editor/store";
 import { SynapsMark, SynapsWordmark } from "./SynapsMark";
 
+export function StorageBanner() {
+  const warning = useEditorStore((s) => s.storageWarning);
+  const setWarning = useEditorStore((s) => s.setStorageWarning);
+  if (!warning) return null;
+  return (
+    <div className="mx-3 mb-1 flex items-start gap-2 rounded-lg bg-surface px-3 py-2 shadow-border">
+      <p className="min-w-0 flex-1 text-xs text-warn">{warning}</p>
+      <button
+        type="button"
+        className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-fg-muted"
+        onClick={() => setWarning(null)}
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
 export function HeaderBar() {
   const [clock, setClock] = useState(() => formatClock());
   const setTab = useEditorStore((s) => s.setTab);

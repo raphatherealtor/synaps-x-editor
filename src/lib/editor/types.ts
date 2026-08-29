@@ -27,6 +27,12 @@ export interface Block {
   updatedAt: number;
   linkedNodeIds: string[];
   checked?: boolean;
+  /** IndexedDB asset id for uploaded images. */
+  imageAssetId?: string;
+  /**
+   * Static demo path (`/demo/...`) or a not-yet-migrated data URL.
+   * Uploaded images must not live here after migration.
+   */
   imageSrc?: string;
   imageAlt?: string;
   imageWidth?: number;

@@ -7,35 +7,18 @@ import {
   type ReactNode,
 } from "react";
 import { wrapSelection } from "@/lib/editor/markdown";
-import { fileToDataUrl } from "@/lib/editor/images";
+import { decodeCaret, isElementInView, type CaretPos } from "@/lib/editor/caret";
+import { ingestAndInsert } from "@/lib/editor/ingest-ui";
+import { setBeforePersistFlush } from "@/lib/editor/persist-storage";
 import { useEditorStore, selectActiveNote } from "@/lib/editor/store";
-import { EditorApiContext, type CaretPos, type EditorApi } from "./EditorContext";
+import { EditorApiContext, type EditorApi } from "./EditorContext";
 import { SemanticBlock } from "./SemanticBlock";
-
-function decodeCaret(el: HTMLTextAreaElement, caret: CaretPos): number {
-  if (caret === "start") return 0;
-  if (caret === "end") return el.value.length;
-  if (caret >= 2_000_000) {
-    const col = caret - 2_000_000;
-    const lineEnd = el.value.indexOf("\n");
-    const lineLen = lineEnd < 0 ? el.value.length : lineEnd;
-    return Math.min(col, lineLen);
-  }
-  if (caret >= 1_000_000) {
-    const col = caret - 1_000_000;
-    const lineStart = el.value.lastIndexOf("\n") + 1;
-    return lineStart + Math.min(col, el.value.length - lineStart);
-  }
-  return Math.max(0, Math.min(caret, el.value.length));
-}
 
 export function EditorSession({ children }: { children: ReactNode }) {
   const note = useEditorStore(selectActiveNote);
   const pending = useEditorStore((s) => s.pendingFocus);
   const consume = useEditorStore((s) => s.consumePendingFocus);
-  const insertImage = useEditorStore((s) => s.insertImage);
   const setActiveBlock = useEditorStore((s) => s.setActiveBlock);
-  const activeBlockId = useEditorStore((s) => s.activeBlockId);
   const addBlock = useEditorStore((s) => s.addBlock);
 
   const mapRef = useRef(new Map<string, HTMLTextAreaElement>());
@@ -53,14 +36,17 @@ export function EditorSession({ children }: { children: ReactNode }) {
       const apply = () => {
         const el = mapRef.current.get(id);
         if (!el) return false;
-        el.focus();
-        const pos = decodeCaret(el, caret);
+        if (document.activeElement !== el) el.focus({ preventScroll: true });
+        const pos = decodeCaret(el.value, caret);
         try {
           el.setSelectionRange(pos, pos);
         } catch {
           /* ignore */
         }
-        el.scrollIntoView({ block: "nearest" });
+        const scroller = el.closest("main");
+        if (scroller instanceof HTMLElement && !isElementInView(el, scroller)) {
+          el.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
         return true;
       };
       if (!apply()) {
@@ -117,7 +103,18 @@ export function EditorSession({ children }: { children: ReactNode }) {
   }, [pending, consume, focusBlock]);
 
   useEffect(() => {
+    setBeforePersistFlush(() => {
+      const store = useEditorStore.getState();
+      for (const [id, el] of mapRef.current) {
+        store.updateBlock(id, { content: el.value });
+      }
+    });
+    return () => setBeforePersistFlush(null);
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
         const id =
@@ -140,9 +137,8 @@ export function EditorSession({ children }: { children: ReactNode }) {
           const file = e.target.files?.[0];
           e.target.value = "";
           if (!file) return;
-          void fileToDataUrl(file).then((src) => {
-            insertImage(afterRef.current ?? activeBlockId, src, file.name);
-          });
+          const after = afterRef.current ?? useEditorStore.getState().activeBlockId;
+          void ingestAndInsert(after, file);
         }}
       />
       {children}
@@ -152,8 +148,6 @@ export function EditorSession({ children }: { children: ReactNode }) {
 
 export function EditorBody() {
   const note = useEditorStore(selectActiveNote);
-  const insertImage = useEditorStore((s) => s.insertImage);
-  const activeBlockId = useEditorStore((s) => s.activeBlockId);
 
   if (!note) {
     return (
@@ -177,9 +171,8 @@ export function EditorBody() {
         );
         if (!file) return;
         e.preventDefault();
-        void fileToDataUrl(file).then((src) => {
-          insertImage(activeBlockId, src, file.name);
-        });
+        const after = useEditorStore.getState().activeBlockId;
+        void ingestAndInsert(after, file);
       }}
     >
       {note.blocks.map((b, i) => (

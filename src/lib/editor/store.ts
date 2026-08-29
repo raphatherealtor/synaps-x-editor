@@ -1,8 +1,11 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import { uid } from "@/lib/utils";
 import { countWords, firstLine, toMarkdown } from "./markdown";
 import { DEFAULT_SETTINGS, SEED_NOTES } from "./seed";
+import { journalStorage, setPersistQuotaHandler } from "./persist-storage";
+import { pruneUnreferencedAssets } from "./image-db";
+import { collectAssetIds } from "./migrate-images";
 import type {
   AppTab,
   Block,
@@ -28,8 +31,11 @@ export interface EditorStore {
   mcpActive: boolean;
   pendingFocus: PendingFocus | null;
   hydrated: boolean;
+  storageWarning: string | null;
 
   hydrateFlag: () => void;
+  replaceNotes: (notes: Note[]) => void;
+  setStorageWarning: (msg: string | null) => void;
   setTab: (tab: AppTab) => void;
   setActiveNote: (id: string) => void;
   setActiveBlock: (id: string | null) => void;
@@ -43,7 +49,7 @@ export interface EditorStore {
   updateBlock: (id: string, patch: Partial<Block>) => void;
   changeType: (id: string, type: SemanticType) => void;
   addBlock: (afterId: string | null, type?: SemanticType, initial?: Partial<Block>) => string;
-  insertImage: (afterId: string | null, src: string, alt?: string) => string;
+  insertImage: (afterId: string | null, assetId: string, alt?: string) => string;
   deleteBlock: (id: string) => void;
   duplicateBlock: (id: string) => void;
   moveBlock: (id: string, dir: -1 | 1) => void;
@@ -93,6 +99,7 @@ function makeBlock(type: SemanticType, order: number, extra: Partial<Block> = {}
     updatedAt: now,
     linkedNodeIds: extra.linkedNodeIds ?? [],
     checked: extra.checked,
+    imageAssetId: extra.imageAssetId,
     imageSrc: extra.imageSrc,
     imageAlt: extra.imageAlt,
     imageWidth: extra.imageWidth ?? (type === "image" ? 100 : undefined),
@@ -105,6 +112,16 @@ function isTextBlock(type: SemanticType): boolean {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pruneTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePrune(notes: Note[]) {
+  if (typeof indexedDB === "undefined") return;
+  if (pruneTimer) clearTimeout(pruneTimer);
+  const keep = collectAssetIds(notes);
+  pruneTimer = setTimeout(() => {
+    void pruneUnreferencedAssets(keep).catch(() => undefined);
+  }, 800);
+}
 
 function withSave<T extends EditorStore>(
   set: (partial: Partial<T> | ((s: T) => Partial<T>)) => void,
@@ -115,6 +132,21 @@ function withSave<T extends EditorStore>(
   saveTimer = setTimeout(() => {
     set({ saveState: "saved" } as Partial<T>);
   }, 480);
+}
+
+function stripHeavyImages(notes: Note[]): Note[] {
+  return notes.map((note) => ({
+    ...note,
+    blocks: note.blocks.map((b) => {
+      if (b.imageSrc?.startsWith("data:") && b.imageAssetId) {
+        return { ...b, imageSrc: undefined };
+      }
+      if (b.imageSrc?.startsWith("blob:")) {
+        return { ...b, imageSrc: b.imageAssetId ? undefined : b.imageSrc };
+      }
+      return b;
+    }),
+  }));
 }
 
 export const useEditorStore = create<EditorStore>()(
@@ -129,19 +161,28 @@ export const useEditorStore = create<EditorStore>()(
       mcpActive: true,
       pendingFocus: null,
       hydrated: false,
+      storageWarning: null,
 
       hydrateFlag: () => set({ hydrated: true }),
+      replaceNotes: (notes) => set({ notes }),
+      setStorageWarning: (msg) =>
+        set({
+          storageWarning: msg,
+          saveState: msg ? "offline" : "saved",
+        }),
 
       setTab: (tab) => set({ tab }),
       setActiveNote: (id) => {
-        const note = get().notes.find((n) => n.id === id);
         set({
           activeNoteId: id,
           activeBlockId: null,
           tab: "editor",
         });
       },
-      setActiveBlock: (id) => set({ activeBlockId: id }),
+      setActiveBlock: (id) => {
+        if (get().activeBlockId === id) return;
+        set({ activeBlockId: id });
+      },
       consumePendingFocus: () => {
         const p = get().pendingFocus;
         if (p) set({ pendingFocus: null });
@@ -168,6 +209,12 @@ export const useEditorStore = create<EditorStore>()(
 
       updateBlock: (id, patch) => {
         const { notes, activeNoteId } = get();
+        const note = notes.find((n) => n.id === activeNoteId);
+        const current = note?.blocks.find((b) => b.id === id);
+        if (!current) return;
+        const keys = Object.keys(patch) as (keyof Block)[];
+        const same = keys.every((k) => current[k] === patch[k]);
+        if (same) return;
         withSave(set, {
           notes: patchActive(notes, activeNoteId, (n) => ({
             ...n,
@@ -221,9 +268,9 @@ export const useEditorStore = create<EditorStore>()(
         return newBlock.id;
       },
 
-      insertImage: (afterId, src, alt) => {
+      insertImage: (afterId, assetId, alt) => {
         const id = get().addBlock(afterId, "image", {
-          imageSrc: src,
+          imageAssetId: assetId,
           imageAlt: alt ?? "Inserted image",
           imageWidth: 100,
         });
@@ -254,9 +301,11 @@ export const useEditorStore = create<EditorStore>()(
           get().updateBlock(id, {
             content: "",
             imageSrc: undefined,
+            imageAssetId: undefined,
             checked: false,
           });
           set({ pendingFocus: { id, caret: "start" }, activeBlockId: id });
+          schedulePrune(get().notes);
           return;
         }
         const idx = note.blocks.findIndex((b) => b.id === id);
@@ -275,6 +324,7 @@ export const useEditorStore = create<EditorStore>()(
             caret: idx > 0 ? "end" : "start",
           },
         });
+        schedulePrune(get().notes);
       },
 
       duplicateBlock: (id) => {
@@ -523,6 +573,7 @@ export const useEditorStore = create<EditorStore>()(
           activeNoteId: fallback.id,
           activeBlockId: fallback.blocks[0]?.id ?? null,
         });
+        schedulePrune(next);
       },
 
       resetDemo: () => {
@@ -533,6 +584,7 @@ export const useEditorStore = create<EditorStore>()(
           settings: { ...DEFAULT_SETTINGS },
           tab: "editor",
         });
+        schedulePrune(SEED_NOTES);
       },
 
       exportActiveMarkdown: () => {
@@ -544,9 +596,10 @@ export const useEditorStore = create<EditorStore>()(
     }),
     {
       name: "synaps-x-journal",
-      version: 1,
-      storage: createJSONStorage(() => localStorage),
+      version: 2,
+      storage: journalStorage,
       skipHydration: true,
+      migrate: (persisted) => persisted as EditorStore,
       merge: (persisted, current) => {
         const p = persisted as Partial<EditorStore> | undefined;
         if (!p?.notes?.length) return current;
@@ -568,7 +621,7 @@ export const useEditorStore = create<EditorStore>()(
         };
       },
       partialize: (s) => ({
-        notes: s.notes,
+        notes: stripHeavyImages(s.notes),
         activeNoteId: s.activeNoteId,
         settings: {
           fontScale: s.settings.fontScale,
@@ -580,6 +633,10 @@ export const useEditorStore = create<EditorStore>()(
     },
   ),
 );
+
+setPersistQuotaHandler((err) => {
+  useEditorStore.getState().setStorageWarning(err.message);
+});
 
 export function selectActiveNote(s: EditorStore): Note | undefined {
   return s.notes.find((n) => n.id === s.activeNoteId);

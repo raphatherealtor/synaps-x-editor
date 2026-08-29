@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { memo, useRef } from "react";
 import { ImagePlus, Replace, Trash2 } from "lucide-react";
-import { fileToDataUrl } from "@/lib/editor/images";
+import { ingestAndReplace } from "@/lib/editor/ingest-ui";
 import { useEditorStore } from "@/lib/editor/store";
+import { useAssetUrl } from "./useAssetUrl";
 
-export function ImageBlock({ id }: { id: string }) {
+export const ImageBlock = memo(function ImageBlock({ id }: { id: string }) {
   const block = useEditorStore((s) => {
     const note = s.notes.find((n) => n.id === s.activeNoteId);
     return note?.blocks.find((b) => b.id === id);
@@ -13,15 +14,15 @@ export function ImageBlock({ id }: { id: string }) {
   const deleteBlock = useEditorStore((s) => s.deleteBlock);
   const setActiveBlock = useEditorStore((s) => s.setActiveBlock);
   const inputRef = useRef<HTMLInputElement>(null);
+  const url = useAssetUrl(block?.imageAssetId, block?.imageSrc);
 
   if (!block) return null;
 
   const width = Math.min(100, Math.max(40, block.imageWidth ?? 100));
 
-  const onFile = async (file: File | undefined) => {
+  const onFile = (file: File | undefined) => {
     if (!file || !file.type.startsWith("image/")) return;
-    const src = await fileToDataUrl(file);
-    updateBlock(id, { imageSrc: src, imageAlt: file.name.replace(/\.[^.]+$/, "") });
+    void ingestAndReplace(id, file);
   };
 
   return (
@@ -34,17 +35,19 @@ export function ImageBlock({ id }: { id: string }) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          void onFile(file);
+          onFile(file);
         }}
       />
 
-      {block.imageSrc ? (
+      {url ? (
         <figure className="mx-auto" style={{ width: `${width}%` }}>
           <img
-            src={block.imageSrc}
+            src={url}
             alt={block.imageAlt || "Note image"}
             className="framed aspect-square w-full rounded-lg object-cover"
             draggable={false}
+            loading="lazy"
+            decoding="async"
           />
         </figure>
       ) : (
@@ -98,5 +101,4 @@ export function ImageBlock({ id }: { id: string }) {
       ) : null}
     </div>
   );
-}
-
+});

@@ -7,15 +7,11 @@ dist/
 .nitro/
 .tanstack/
 .vercel/
-.grok/
-.temp/
-/temp/
 *.tsbuildinfo
 
 # Logs
 *.log
 npm-debug.log*
-/tmp/
 
 # Environment (do not commit secrets)
 .env
@@ -28,5 +24,13 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Local lock used by the Grok sandbox only
+# Grok sandbox / session-only
 .node_modules.lock
+.project_id
+.grok/
+.temp/
+/temp/
+/tmp/
+artifacts/
+attachments/
+screenshots/

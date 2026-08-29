@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
+import type { CaretPos } from "@/lib/editor/caret";
 
-export type CaretPos = number | "start" | "end";
+export type { CaretPos };
 
 export type EditorApi = {
   register: (id: string, el: HTMLTextAreaElement | null) => void;

@@ -67,13 +67,29 @@ export function firstLine(text: string, fallback = "Untitled"): string {
   return line || fallback;
 }
 
-export function toMarkdown(blocks: {
-  semanticType: string;
-  content: string;
-  checked?: boolean;
+function imageMarkdownSrc(b: {
   imageSrc?: string;
-  imageAlt?: string;
-}[]): string {
+  imageAssetId?: string;
+}): string {
+  const src = b.imageSrc ?? "";
+  if (src.startsWith("data:") || src.startsWith("blob:")) {
+    return b.imageAssetId ? `synaps-asset:${b.imageAssetId}` : "embedded-image";
+  }
+  if (src) return src;
+  if (b.imageAssetId) return `synaps-asset:${b.imageAssetId}`;
+  return "";
+}
+
+export function toMarkdown(
+  blocks: {
+    semanticType: string;
+    content: string;
+    checked?: boolean;
+    imageSrc?: string;
+    imageAlt?: string;
+    imageAssetId?: string;
+  }[],
+): string {
   const out: string[] = [];
   for (const b of blocks) {
     switch (b.semanticType) {
@@ -104,7 +120,7 @@ export function toMarkdown(blocks: {
         out.push(`> **Note:** ${b.content}`);
         break;
       case "image":
-        out.push(`![${b.imageAlt || "image"}](${b.imageSrc || ""})`);
+        out.push(`![${b.imageAlt || "image"}](${imageMarkdownSrc(b)})`);
         break;
       case "caption":
         out.push(`*${b.content}*`);
