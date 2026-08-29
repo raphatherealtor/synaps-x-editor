@@ -1,0 +1,362 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-bg: #07090d;
+  --color-bg-elevated: #0c1016;
+  --color-surface: #10151c;
+  --color-surface-2: #161c24;
+  --color-surface-3: #1c2430;
+  --color-fg: #e8eef4;
+  --color-fg-muted: #8b96a8;
+  --color-fg-subtle: #5c6778;
+  --color-border: #1e2733;
+  --color-border-strong: #2a3544;
+  --color-cyan: #2ee6c5;
+  --color-violet: #9b8cff;
+  --color-magenta: #d06bff;
+  --color-blue: #6aa8ff;
+  --color-danger: #ff5c7a;
+  --color-warn: #ffc46b;
+  --color-online: #3dff9a;
+
+  --color-sem-title: #2ee6c5;
+  --color-sem-heading: #9b8cff;
+  --color-sem-subheading: #d06bff;
+  --color-sem-body: #d7dee8;
+  --color-sem-quote: #a8b4e8;
+  --color-sem-code: #5dffc8;
+  --color-sem-check: #c5cdd8;
+  --color-sem-callout: #7ec8ff;
+  --color-sem-image: #6aa8ff;
+  --color-sem-caption: #6b7c90;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-2xl: 28px;
+
+  --shadow-border: 0 0 0 1px rgb(255 255 255 / 0.07);
+  --shadow-border-hover: 0 0 0 1px rgb(255 255 255 / 0.13);
+  --shadow-glow-title: 0 0 0 1px color-mix(in oklab, var(--color-sem-title) 45%, transparent),
+    0 0 22px color-mix(in oklab, var(--color-sem-title) 14%, transparent);
+  --shadow-glow-heading: 0 0 0 1px color-mix(in oklab, var(--color-sem-heading) 45%, transparent),
+    0 0 22px color-mix(in oklab, var(--color-sem-heading) 14%, transparent);
+  --shadow-glow-subheading: 0 0 0 1px color-mix(in oklab, var(--color-sem-subheading) 40%, transparent),
+    0 0 22px color-mix(in oklab, var(--color-sem-subheading) 12%, transparent);
+  --shadow-glow-body: 0 0 0 1px color-mix(in oklab, var(--color-cyan) 28%, transparent),
+    0 0 18px color-mix(in oklab, var(--color-cyan) 8%, transparent);
+  --shadow-glow-quote: 0 0 0 1px color-mix(in oklab, var(--color-sem-quote) 40%, transparent),
+    0 0 18px color-mix(in oklab, var(--color-sem-quote) 10%, transparent);
+  --shadow-glow-code: 0 0 0 1px color-mix(in oklab, var(--color-sem-code) 40%, transparent),
+    0 0 18px color-mix(in oklab, var(--color-sem-code) 10%, transparent);
+  --shadow-glow-check: 0 0 0 1px color-mix(in oklab, var(--color-fg) 18%, transparent),
+    0 0 16px color-mix(in oklab, var(--color-cyan) 6%, transparent);
+  --shadow-glow-callout: 0 0 0 1px color-mix(in oklab, var(--color-sem-callout) 40%, transparent),
+    0 0 18px color-mix(in oklab, var(--color-sem-callout) 10%, transparent);
+  --shadow-glow-image: 0 0 0 1px color-mix(in oklab, var(--color-sem-image) 40%, transparent),
+    0 0 22px color-mix(in oklab, var(--color-sem-image) 12%, transparent);
+  --shadow-glow-caption: 0 0 0 1px color-mix(in oklab, var(--color-sem-caption) 35%, transparent);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  textarea,
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  textarea:focus,
+  input:focus,
+  button:focus-visible {
+    outline: none;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-cyan) 32%, transparent);
+    color: var(--color-fg);
+  }
+}
+
+@layer components {
+  .app-shell {
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 0% -10%,
+        color-mix(in oklab, var(--color-cyan) 9%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 80% 50% at 100% 110%,
+        color-mix(in oklab, var(--color-violet) 10%, transparent),
+        transparent 55%
+      );
+    color: var(--color-fg);
+  }
+
+  .glow-line {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--color-cyan) 55%, transparent) 22%,
+      color-mix(in oklab, var(--color-violet) 55%, transparent) 78%,
+      transparent 100%
+    );
+    opacity: 0.55;
+  }
+
+  .rail-dots {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--rail) 70%, transparent) 1.1px,
+      transparent 1.2px
+    );
+    background-size: 4px 7px;
+    background-repeat: repeat-y;
+    background-position: center top;
+  }
+
+  .device-panel {
+    background: color-mix(in oklab, var(--color-surface) 88%, black);
+    box-shadow: var(--shadow-border);
+  }
+
+  .caret-cyan {
+    caret-color: var(--color-cyan);
+  }
+
+  .block-textarea {
+    display: block;
+    width: 100%;
+    resize: none;
+    overflow: hidden;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .block-textarea.is-idle {
+    color: transparent;
+    caret-color: transparent;
+  }
+
+  .block-textarea::placeholder {
+    color: var(--color-fg-subtle);
+    opacity: 0.85;
+  }
+
+  .md-preview {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .md-preview .md-code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    color: var(--color-sem-code);
+    background: color-mix(in oklab, var(--color-sem-code) 10%, transparent);
+    padding: 0.05em 0.35em;
+    border-radius: 4px;
+  }
+
+  .md-preview .md-link {
+    color: var(--color-cyan);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .md-preview .md-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    letter-spacing: 0.04em;
+    color: var(--color-cyan);
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 35%, transparent);
+    padding: 0.05em 0.45em;
+    border-radius: 999px;
+    margin-right: 0.25em;
+    transform: translateY(-1px);
+  }
+
+  .type-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.25;
+    color: var(--color-sem-title);
+    text-wrap: balance;
+  }
+  .type-heading {
+    font-size: 1.12rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: var(--color-sem-heading);
+    text-wrap: balance;
+  }
+  .type-subheading {
+    font-size: 1.02rem;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.35;
+    color: var(--color-sem-subheading);
+    text-wrap: balance;
+  }
+  .type-body {
+    font-size: 0.98rem;
+    font-weight: 400;
+    color: var(--color-sem-body);
+  }
+  .type-quote {
+    font-size: 0.98rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--color-sem-quote);
+  }
+  .type-code {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--color-sem-code);
+  }
+  .type-checklist {
+    font-size: 0.95rem;
+    color: var(--color-sem-check);
+  }
+  .type-callout {
+    font-size: 0.92rem;
+    color: var(--color-sem-callout);
+  }
+  .type-caption {
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    color: var(--color-sem-caption);
+  }
+
+  .scale-s .type-title { font-size: 1.18rem; }
+  .scale-s .type-heading { font-size: 1.02rem; }
+  .scale-s .type-body,
+  .scale-s .type-quote,
+  .scale-s .type-checklist { font-size: 0.9rem; }
+
+  .scale-l .type-title { font-size: 1.5rem; }
+  .scale-l .type-heading { font-size: 1.22rem; }
+  .scale-l .type-body,
+  .scale-l .type-quote,
+  .scale-l .type-checklist { font-size: 1.05rem; }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: var(--radius-sm);
+    color: var(--color-fg-muted);
+    background: transparent;
+    transition:
+      color 150ms var(--ease-out),
+      background-color 150ms var(--ease-out),
+      box-shadow 150ms var(--ease-out),
+      scale 150ms var(--ease-out);
+  }
+  .icon-btn:hover {
+    color: var(--color-fg);
+    background: color-mix(in oklab, var(--color-fg) 6%, transparent);
+  }
+  .icon-btn:active {
+    scale: 0.96;
+  }
+  .icon-btn.is-active {
+    color: var(--color-bg);
+    background: var(--color-cyan);
+    box-shadow: 0 0 16px color-mix(in oklab, var(--color-cyan) 35%, transparent);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-muted);
+    background: color-mix(in oklab, var(--color-fg) 4%, transparent);
+    box-shadow: var(--shadow-border);
+  }
+
+  .range-cyan {
+    appearance: none;
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--color-cyan) 35%, var(--color-border));
+  }
+  .range-cyan::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--color-cyan);
+    box-shadow: 0 0 10px color-mix(in oklab, var(--color-cyan) 50%, transparent);
+  }
+
+  img.framed {
+    outline: 1px solid rgb(255 255 255 / 0.1);
+    outline-offset: -1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

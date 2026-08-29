@@ -1,0 +1,192 @@
+Build a **mobile-first structured note editor app** called **Synaps-X Editor** (or **BrainBridge X Journal**) using the attached reference image as the primary aesthetic direction.
+
+IMPORTANT:
+This is **only** for the **text editor interface**.
+Do **not** build the canvas / node-map / freeform storyboard area.
+Do **not** build a board view.
+This is a focused, structured, color-coordinated writing editor for phone use.
+
+CORE PRODUCT GOAL
+Create a premium mobile note editor that feels like:
+- a retro-futurist handheld writing device
+- a cybernetic brain-interface journal
+- a structured semantic writing workspace
+- a deep-thinking note app with visual intelligence
+
+It should look like the attached device-inspired UI, but with a **larger, more usable screen area** optimized for actual editing on a phone.
+
+AESTHETIC DIRECTION
+Use the attached image as the visual foundation:
+- dark charcoal / black interface
+- subtle metallic or glass-like surfaces
+- teal / cyan / violet / magenta neon accents
+- crisp illuminated dividers
+- retro-tech / 80s sci-fi undertone
+- premium and elegant, not cheesy
+- readable and practical, not just concept art
+
+The UI should feel like a **real app** that could ship, not just a mockup.
+
+MAIN FEATURE SET
+Build a **block-based structured text editor** where each note is made of stacked paragraph chunks / blocks.
+
+Each block should support a semantic type such as:
+- title
+- heading
+- subheading
+- body
+- quote
+- code
+- checklist
+- callout
+- image
+- caption
+
+EDITOR REQUIREMENTS
+The editing experience must support:
+- stable cursor / caret behavior
+- smooth arrow navigation
+- clean Enter behavior to split blocks
+- clean Backspace / Delete behavior to merge blocks when appropriate
+- multi-paragraph paste handling
+- block-level editing
+- reordering blocks
+- semantic type switching per block
+- persistent metadata per block:
+  - semanticType
+  - order
+  - createdAt
+  - updatedAt
+  - linkedNodeIds
+- smooth performance even with many blocks
+- no weird cursor jumps
+- no event leakage
+- clean focus behavior
+
+TEXT COLOR COORDINATION
+This is one of the most important parts.
+
+The editor should have a **semantic color system** so writing blocks are visually distinguished by type.
+
+Use a restrained, intelligent system like:
+- Title = bright cyan / teal
+- Heading = violet
+- Subheading = magenta-purple
+- Body = soft off-white
+- Quote = muted blue-violet
+- Code = green/cyan terminal tone
+- Checklist = neutral text with accent toggles
+- Callout = softly tinted panel
+- Caption = dim gray-blue
+
+This should feel editorial and organized, not random rainbow text.
+
+IMAGE SUPPORT INSIDE THE TEXT EDITOR
+This is critical.
+
+Users must be able to **upload images directly into the text editor**, as content blocks inside the note.
+
+Do not treat images like separate canvas objects.
+
+Each image block should support:
+- upload/select image
+- display inline in the note flow
+- resize image
+- reorder image block
+- optional caption block below it
+- subtle border / glow / frame consistent with the UI
+- proper spacing within the block stack
+
+LAYOUT
+Design a **mobile-first single-screen editor** with:
+1. top status/header area
+2. note/project context bar
+3. main editor body
+4. formatting / semantic toolbar
+5. image insertion controls
+6. bottom utility or navigation area
+
+The **editor itself must dominate the screen**.
+The screen area should be significantly larger and more functional than the reference hardware mockup.
+Keep the device-inspired look, but prioritize usability.
+
+UI DETAILS
+Include polished details such as:
+- active block highlight
+- subtle block handles or side markers
+- semantic indicators on block edges
+- glowing divider lines
+- save state indicator
+- block count and word count
+- focus mode chip or indicator
+- restrained neon feedback
+- elegant caret styling
+- subtle keyboard / terminal influence
+
+INTERACTION MODEL
+The app should feel like a hybrid of:
+- semantic writing tool
+- structured note system
+- visual research journal
+- mobile deep work editor
+
+Interactions should include:
+- tap block to edit
+- add block below current block
+- switch block type
+- reorder blocks
+- insert image block
+- edit caption
+- scroll naturally through the note
+- keep the side controls clean and minimal
+
+VISUAL / UX PRINCIPLES
+- prioritize readability
+- preserve strong contrast
+- do not overdecorate
+- use glow sparingly
+- keep the app feeling premium
+- maintain a calm futuristic vibe
+- balance creativity with discipline
+- make it feel like a serious writing environment
+
+TECHNICAL / BUILD DIRECTION
+Create this as a functional app structure, not just a visual mockup.
+Use reusable components where appropriate, such as:
+- NoteShell
+- HeaderBar
+- SemanticBlock
+- ImageBlock
+- CaptionBlock
+- Toolbar
+- BlockTypeSwitcher
+- SaveStatus
+- BottomUtilityBar
+
+Also create a coherent design system with:
+- semantic color tokens
+- spacing tokens
+- typography hierarchy
+- panel styles
+- glow / border styles
+- interaction states
+
+OUTPUT EXPECTATION
+Generate a polished mobile editor prototype / implementation-ready interface that combines:
+1. structured paragraph chunking
+2. semantic color-coded writing blocks
+3. inline image upload blocks
+4. the retro-futurist cyber-device aesthetic from the reference image
+
+Again:
+- no canvas
+- no freeform node board
+- no infinite whiteboard
+- no separate storyboard interface
+- only the text editor product
+
+If needed, label the UI as:
+“Synaps-X Editor”
+or
+“BrainBridge X Journal”
+and keep the branding aligned with the attached reference image.
