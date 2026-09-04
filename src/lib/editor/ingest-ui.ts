@@ -1,6 +1,4 @@
 import { ImageIngestError, ingestImageFile } from "./images";
-import { pruneUnreferencedAssets } from "./image-db";
-import { collectAssetIds } from "./migrate-images";
 import { useEditorStore } from "./store";
 
 export function reportImageError(err: unknown) {
@@ -13,8 +11,15 @@ export function reportImageError(err: unknown) {
 }
 
 export async function ingestAndInsert(afterId: string | null, file: File) {
+  const noteId = useEditorStore.getState().activeNoteId;
   try {
     const asset = await ingestImageFile(file);
+    if (useEditorStore.getState().activeNoteId !== noteId) {
+      useEditorStore
+        .getState()
+        .setStorageWarning("The selected note changed. Please insert the image again.");
+      return null;
+    }
     useEditorStore.getState().setStorageWarning(null);
     const alt = file.name.replace(/\.[^.]+$/, "") || "Inserted image";
     return useEditorStore.getState().insertImage(afterId, asset.id, alt);
@@ -25,8 +30,15 @@ export async function ingestAndInsert(afterId: string | null, file: File) {
 }
 
 export async function ingestAndReplace(blockId: string, file: File) {
+  const noteId = useEditorStore.getState().activeNoteId;
   try {
     const asset = await ingestImageFile(file);
+    if (useEditorStore.getState().activeNoteId !== noteId) {
+      useEditorStore
+        .getState()
+        .setStorageWarning("The selected note changed. Please insert the image again.");
+      return null;
+    }
     useEditorStore.getState().setStorageWarning(null);
     const alt = file.name.replace(/\.[^.]+$/, "") || "Inserted image";
     useEditorStore.getState().updateBlock(blockId, {
@@ -34,9 +46,6 @@ export async function ingestAndReplace(blockId: string, file: File) {
       imageSrc: undefined,
       imageAlt: alt,
     });
-    void pruneUnreferencedAssets(collectAssetIds(useEditorStore.getState().notes)).catch(
-      () => undefined,
-    );
     return asset.id;
   } catch (err) {
     reportImageError(err);

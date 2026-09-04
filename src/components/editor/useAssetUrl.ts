@@ -9,17 +9,22 @@ export function useAssetUrl(assetId?: string, fallbackSrc?: string) {
 
   useEffect(() => {
     let cancelled = false;
+    let retained = false;
     if (assetId) {
       void retainAssetUrl(assetId)
         .then((next) => {
-          if (!cancelled) setUrl(next);
+          if (!cancelled) {
+            retained = true;
+            setUrl(next);
+          } else releaseAssetUrl(assetId);
         })
         .catch(() => {
           if (!cancelled) setUrl(staticSrc ?? legacySrc);
         });
       return () => {
         cancelled = true;
-        releaseAssetUrl(assetId);
+        // Release only after retain resolves; otherwise an unmounted consumer leaks a ref.
+        if (retained) releaseAssetUrl(assetId);
       };
     }
     setUrl(staticSrc ?? legacySrc);

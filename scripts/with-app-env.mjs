@@ -62,7 +62,9 @@ export function readAppEnv(root) {
 
 /** File values under the process environment: an explicit override wins. */
 export function mergeAppEnv(appEnv, processEnv) {
-  return { ...appEnv, ...processEnv };
+  // Standalone Synaps-X has no account service. Do not depend on an excluded
+  // Grok sandbox file to keep authentication disabled in local/hosted builds.
+  return { VITE_AUTH_ENABLED: "false", ...appEnv, ...processEnv };
 }
 
 /**

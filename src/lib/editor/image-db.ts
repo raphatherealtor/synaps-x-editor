@@ -1,4 +1,5 @@
-import { uid } from "@/lib/utils";
+import { uid } from "../utils.ts";
+import { transactionDone } from "./idb-transaction.ts";
 
 export interface ImageAssetRecord {
   id: string;
@@ -90,7 +91,9 @@ export async function putAsset(record: ImageAssetRecord): Promise<void> {
   const db = await openDb();
   try {
     const tx = db.transaction(STORE, "readwrite");
-    await reqToPromise(tx.objectStore(STORE).put(record));
+    const committed = transactionDone(tx);
+    tx.objectStore(STORE).put(record);
+    await committed;
   } catch (err) {
     if (isQuotaError(err)) throw new StorageQuotaError();
     throw err;
@@ -100,9 +103,7 @@ export async function putAsset(record: ImageAssetRecord): Promise<void> {
 export async function getAsset(id: string): Promise<ImageAssetRecord | undefined> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readonly");
-  return (await reqToPromise(tx.objectStore(STORE).get(id))) as
-    | ImageAssetRecord
-    | undefined;
+  return (await reqToPromise(tx.objectStore(STORE).get(id))) as ImageAssetRecord | undefined;
 }
 
 export async function getAssetByFingerprint(
@@ -118,7 +119,9 @@ export async function deleteAsset(id: string): Promise<void> {
   releaseCachedUrl(id, true);
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
-  await reqToPromise(tx.objectStore(STORE).delete(id));
+  const committed = transactionDone(tx);
+  tx.objectStore(STORE).delete(id);
+  await committed;
 }
 
 export async function listAssetIds(): Promise<string[]> {

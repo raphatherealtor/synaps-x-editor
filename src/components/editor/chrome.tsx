@@ -58,7 +58,7 @@ export function HeaderBar() {
       <div className="flex flex-1 items-center justify-end gap-2">
         <span className="chip text-online">
           <span className="size-1.5 rounded-full bg-online" />
-          Online
+          Local
         </span>
         <button
           type="button"
@@ -75,7 +75,6 @@ export function HeaderBar() {
 
 export function ContextBar() {
   const note = useEditorStore(selectActiveNote);
-  const mcp = useEditorStore((s) => s.mcpActive);
   const setTab = useEditorStore((s) => s.setTab);
   const setProject = useEditorStore((s) => s.setProject);
   const [editing, setEditing] = useState(false);
@@ -120,20 +119,7 @@ export function ContextBar() {
             <span className="text-fg">{note.project}</span>
           </button>
         )}
-        <span
-          className={cn(
-            "chip",
-            mcp ? "text-online" : "text-fg-subtle",
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              mcp ? "bg-online" : "bg-fg-subtle",
-            )}
-          />
-          MCP {mcp ? "active" : "idle"}
-        </span>
+        <span className="chip text-fg-muted">Device only</span>
         <button
           type="button"
           aria-label="Note options"
@@ -159,9 +145,7 @@ export function BottomUtilityBar() {
   return (
     <div className="flex items-center gap-2 border-t border-border px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-fg-subtle">
-          Words
-        </p>
+        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-fg-subtle">Words</p>
         <p className="font-mono text-xs tabular-nums text-fg">{words.toLocaleString()}</p>
       </div>
       <button
@@ -182,7 +166,7 @@ export function BottomUtilityBar() {
       </button>
       <div className="min-w-0 flex-1 text-right">
         <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-fg-subtle">
-          Sync
+          Device save
         </p>
         <p
           className={cn(
@@ -194,14 +178,8 @@ export function BottomUtilityBar() {
                 : "text-online",
           )}
         >
-          <RefreshCw
-            className={cn("size-3", saveState === "saving" && "animate-spin")}
-          />
-          {saveState === "saving"
-            ? "Writing"
-            : saveState === "offline"
-              ? "Offline"
-              : "Online"}
+          <RefreshCw className={cn("size-3", saveState === "saving" && "animate-spin")} />
+          {saveState === "saving" ? "Writing" : saveState === "offline" ? "Not saved" : "Saved"}
         </p>
       </div>
       <span className="sr-only">{blocks} blocks</span>
@@ -286,9 +264,7 @@ function NavItem({
       )}
     >
       <Icon className="size-4" strokeWidth={active ? 2.2 : 1.8} />
-      <span className="font-mono text-[9px] uppercase tracking-[0.14em]">
-        {label}
-      </span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.14em]">{label}</span>
     </button>
   );
 }
@@ -306,4 +282,3 @@ export function FocusChip() {
     </button>
   );
 }
-

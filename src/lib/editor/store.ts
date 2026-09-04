@@ -3,9 +3,7 @@ import { persist } from "zustand/middleware";
 import { uid } from "@/lib/utils";
 import { countWords, firstLine, toMarkdown } from "./markdown";
 import { DEFAULT_SETTINGS, SEED_NOTES } from "./seed";
-import { journalStorage, setPersistQuotaHandler } from "./persist-storage";
-import { pruneUnreferencedAssets } from "./image-db";
-import { collectAssetIds } from "./migrate-images";
+import { journalStorage, setPersistQuotaHandler, setPersistStatusHandler } from "./persist-storage";
 import type {
   AppTab,
   Block,
@@ -74,11 +72,7 @@ function touchNote(note: Note, blocks: Block[]): Note {
   return { ...note, blocks: reindex(blocks), updatedAt: Date.now() };
 }
 
-function patchActive(
-  notes: Note[],
-  activeNoteId: string,
-  mutator: (note: Note) => Note,
-): Note[] {
+function patchActive(notes: Note[], activeNoteId: string, mutator: (note: Note) => Note): Note[] {
   return notes.map((n) => (n.id === activeNoteId ? mutator(n) : n));
 }
 
@@ -111,16 +105,9 @@ function isTextBlock(type: SemanticType): boolean {
   return type !== "image";
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let pruneTimer: ReturnType<typeof setTimeout> | null = null;
-
-function schedulePrune(notes: Note[]) {
-  if (typeof indexedDB === "undefined") return;
-  if (pruneTimer) clearTimeout(pruneTimer);
-  const keep = collectAssetIds(notes);
-  pruneTimer = setTimeout(() => {
-    void pruneUnreferencedAssets(keep).catch(() => undefined);
-  }, 800);
+// Keep orphaned blobs during beta: pruning races with uploads and other tabs.
+function schedulePrune(_notes: Note[]) {
+  /* intentionally non-destructive */
 }
 
 function withSave<T extends EditorStore>(
@@ -128,10 +115,6 @@ function withSave<T extends EditorStore>(
   extra: Partial<T>,
 ) {
   set({ ...extra, saveState: "saving" } as Partial<T>);
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    set({ saveState: "saved" } as Partial<T>);
-  }, 480);
 }
 
 function stripHeavyImages(notes: Note[]): Note[] {
@@ -158,18 +141,14 @@ export const useEditorStore = create<EditorStore>()(
       tab: "editor",
       settings: { ...DEFAULT_SETTINGS },
       saveState: "saved",
-      mcpActive: true,
+      mcpActive: false,
       pendingFocus: null,
       hydrated: false,
       storageWarning: null,
 
       hydrateFlag: () => set({ hydrated: true }),
       replaceNotes: (notes) => set({ notes }),
-      setStorageWarning: (msg) =>
-        set({
-          storageWarning: msg,
-          saveState: msg ? "offline" : "saved",
-        }),
+      setStorageWarning: (msg) => set({ storageWarning: msg }),
 
       setTab: (tab) => set({ tab }),
       setActiveNote: (id) => {
@@ -188,14 +167,10 @@ export const useEditorStore = create<EditorStore>()(
         if (p) set({ pendingFocus: null });
         return p;
       },
-      setFocusMode: (on) =>
-        set((s) => ({ settings: { ...s.settings, focusMode: on } })),
-      setFontScale: (fontScale) =>
-        set((s) => ({ settings: { ...s.settings, fontScale } })),
-      setShowRails: (showRails) =>
-        set((s) => ({ settings: { ...s.settings, showRails } })),
-      setCompact: (compact) =>
-        set((s) => ({ settings: { ...s.settings, compact } })),
+      setFocusMode: (on) => set((s) => ({ settings: { ...s.settings, focusMode: on } })),
+      setFontScale: (fontScale) => set((s) => ({ settings: { ...s.settings, fontScale } })),
+      setShowRails: (showRails) => set((s) => ({ settings: { ...s.settings, showRails } })),
+      setCompact: (compact) => set((s) => ({ settings: { ...s.settings, compact } })),
       setProject: (name) => {
         const { notes, activeNoteId } = get();
         withSave(set, {
@@ -239,9 +214,8 @@ export const useEditorStore = create<EditorStore>()(
                     semanticType: type,
                     updatedAt: Date.now(),
                     checked: type === "checklist" ? Boolean(b.checked) : undefined,
-                    calloutTone:
-                      type === "callout" ? b.calloutTone ?? "idea" : undefined,
-                    imageWidth: type === "image" ? b.imageWidth ?? 100 : b.imageWidth,
+                    calloutTone: type === "callout" ? (b.calloutTone ?? "idea") : undefined,
+                    imageWidth: type === "image" ? (b.imageWidth ?? 100) : b.imageWidth,
                   }
                 : b,
             ),
@@ -254,9 +228,7 @@ export const useEditorStore = create<EditorStore>()(
         const newBlock = makeBlock(type, 0, initial);
         withSave(set, {
           notes: patchActive(notes, activeNoteId, (n) => {
-            const idx = afterId
-              ? n.blocks.findIndex((b) => b.id === afterId)
-              : n.blocks.length - 1;
+            const idx = afterId ? n.blocks.findIndex((b) => b.id === afterId) : n.blocks.length - 1;
             const at = idx < 0 ? n.blocks.length : idx + 1;
             const blocks = [...n.blocks];
             blocks.splice(at, 0, newBlock);
@@ -280,11 +252,7 @@ export const useEditorStore = create<EditorStore>()(
           notes: patchActive(notes, activeNoteId, (n) => {
             const idx = n.blocks.findIndex((b) => b.id === id);
             const blocks = [...n.blocks];
-            blocks.splice(
-              idx + 1,
-              0,
-              makeBlock("caption", 0, { id: captionId, content: "" }),
-            );
+            blocks.splice(idx + 1, 0, makeBlock("caption", 0, { id: captionId, content: "" }));
             return touchNote(n, blocks);
           }),
           activeBlockId: captionId,
@@ -309,8 +277,7 @@ export const useEditorStore = create<EditorStore>()(
           return;
         }
         const idx = note.blocks.findIndex((b) => b.id === id);
-        const neighbor =
-          note.blocks[idx - 1] ?? note.blocks[idx + 1] ?? note.blocks[0];
+        const neighbor = note.blocks[idx - 1] ?? note.blocks[idx + 1] ?? note.blocks[0];
         withSave(set, {
           notes: patchActive(notes, activeNoteId, (n) =>
             touchNote(
@@ -428,9 +395,7 @@ export const useEditorStore = create<EditorStore>()(
               n.blocks
                 .filter((b) => b.id !== id)
                 .map((b) =>
-                  b.id === prev.id
-                    ? { ...b, content: joined, updatedAt: Date.now() }
-                    : b,
+                  b.id === prev.id ? { ...b, content: joined, updatedAt: Date.now() } : b,
                 ),
             ),
           ),
@@ -534,9 +499,7 @@ export const useEditorStore = create<EditorStore>()(
             return touchNote(n, blocks);
           }),
           activeBlockId: last ? last.id : id,
-          pendingFocus: last
-            ? { id: last.id, caret: "end" }
-            : { id, caret: first.length },
+          pendingFocus: last ? { id: last.id, caret: "end" } : { id, caret: first.length },
         });
       },
 
@@ -565,9 +528,7 @@ export const useEditorStore = create<EditorStore>()(
         if (notes.length <= 1) return;
         const next = notes.filter((n) => n.id !== id);
         const fallback =
-          id === activeNoteId
-            ? next[0]
-            : next.find((n) => n.id === activeNoteId) ?? next[0];
+          id === activeNoteId ? next[0] : (next.find((n) => n.id === activeNoteId) ?? next[0]);
         withSave(set, {
           notes: next,
           activeNoteId: fallback.id,
@@ -611,8 +572,7 @@ export const useEditorStore = create<EditorStore>()(
           ...current,
           notes,
           activeNoteId,
-          activeBlockId:
-            notes.find((n) => n.id === activeNoteId)?.blocks[0]?.id ?? null,
+          activeBlockId: notes.find((n) => n.id === activeNoteId)?.blocks[0]?.id ?? null,
           settings: {
             ...current.settings,
             ...p.settings,
@@ -637,6 +597,13 @@ export const useEditorStore = create<EditorStore>()(
 setPersistQuotaHandler((err) => {
   useEditorStore.getState().setStorageWarning(err.message);
 });
+setPersistStatusHandler((saveState) => {
+  const state = useEditorStore.getState();
+  if (state.saveState !== saveState) useEditorStore.setState({ saveState });
+  if (saveState === "saved" && state.storageWarning?.startsWith("Not saved:")) {
+    useEditorStore.setState({ storageWarning: null });
+  }
+});
 
 export function selectActiveNote(s: EditorStore): Note | undefined {
   return s.notes.find((n) => n.id === s.activeNoteId);
@@ -644,9 +611,7 @@ export function selectActiveNote(s: EditorStore): Note | undefined {
 
 export function noteTitle(note: Note): string {
   const titled = note.blocks.find(
-    (b) =>
-      (b.semanticType === "title" || b.semanticType === "heading") &&
-      b.content.trim(),
+    (b) => (b.semanticType === "title" || b.semanticType === "heading") && b.content.trim(),
   );
   if (titled) return firstLine(titled.content);
   const any = note.blocks.find((b) => b.content.trim());
